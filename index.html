@@ -1,0 +1,306 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon-192.svg">
+<title>Kamera Çevirmeni · PWA</title>
+<style>
+  :root{
+    --bg:#0b1220; --surface:#151d2f; --surface-2:#1e2839; --border:#2a3448;
+    --text:#e7ecf5; --muted:#8f9bb3;
+    --accent:#4ade80; --blue:#60a5fa; --warm:#fb923c; --danger:#f87171;
+    --radius:14px;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; background:var(--bg); color:var(--text); min-height:100dvh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    font-size:15px; padding-bottom:calc(24px + env(safe-area-inset-bottom));
+  }
+  header{
+    padding:calc(14px + env(safe-area-inset-top)) 16px 12px;
+    background:linear-gradient(180deg,#16213a,#0b1220);
+    border-bottom:1px solid var(--border);
+    position:sticky; top:0; z-index:20;
+  }
+  header h1{ margin:0; font-size:17px; font-weight:700; }
+  header .sub{ color:var(--muted); font-size:12px; margin-top:3px; }
+  main{ padding:14px 16px 0; }
+
+  .card{
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); padding:14px; margin-bottom:12px;
+  }
+  .card h2{ margin:0 0 10px; font-size:14px; font-weight:700; }
+  label.field{ display:block; font-size:12px; color:var(--muted); margin-bottom:5px; font-weight:600; }
+  select, input[type=text], textarea{
+    width:100%; background:var(--surface-2); border:1px solid var(--border);
+    color:var(--text); padding:11px 12px; border-radius:10px; font-size:14px;
+    font-family:inherit;
+  }
+  textarea{ min-height:90px; resize:vertical; }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .row.stack{ flex-wrap:nowrap; }
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  button.btn{
+    flex:1 1 auto; min-width:96px;
+    background:var(--surface-2); color:var(--text); border:1px solid var(--border);
+    padding:12px 14px; border-radius:11px; font-size:13.5px; font-weight:600;
+    cursor:pointer; transition:.15s; touch-action:manipulation;
+  }
+  button.btn:active{ transform:scale(.97); }
+  button.btn.primary{ background:var(--accent); color:#06210f; border-color:var(--accent); }
+  button.btn.blue{ background:var(--blue); color:#04162b; border-color:var(--blue); }
+  button.btn.danger{ background:var(--danger); color:#2a0505; border-color:var(--danger); }
+  button.btn:disabled{ opacity:.4; }
+  button.btn.small{ padding:8px 12px; font-size:12px; min-width:auto; flex:0; }
+
+  .mode-toggle{
+    display:flex; background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:4px; margin-bottom:12px;
+  }
+  .mode-toggle button{
+    flex:1; background:transparent; border:0; color:var(--muted);
+    padding:10px; border-radius:9px; font-size:13px; font-weight:700;
+    cursor:pointer;
+  }
+  .mode-toggle button.active{ background:var(--accent); color:#06210f; }
+
+  .camera-wrap{
+    position:relative; width:100%; aspect-ratio:4/3;
+    background:#000; border-radius:14px; overflow:hidden; margin-bottom:12px;
+  }
+  .camera-wrap video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .crop-overlay{ position:absolute; inset:0; pointer-events:none; }
+  .crop-box{
+    position:absolute; left:10%; right:10%; top:30%; bottom:30%;
+    border:2px solid rgba(74,222,128,.9); border-radius:10px;
+    box-shadow:0 0 0 9999px rgba(0,0,0,.4);
+  }
+  .crop-box::before, .crop-box::after{
+    content:''; position:absolute; width:16px; height:16px;
+    border:3px solid var(--accent);
+  }
+  .crop-box::before{ top:-3px; left:-3px; border-right:0; border-bottom:0; border-radius:8px 0 0 0; }
+  .crop-box::after{ bottom:-3px; right:-3px; border-left:0; border-top:0; border-radius:0 0 8px 0; }
+  .camera-message{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#8f9bb3; font-size:13px; text-align:center; padding:24px; font-weight:600;
+    background:rgba(11,18,32,.55);
+  }
+  .camera-message.hidden{ display:none; }
+
+  .progress{ height:4px; background:var(--surface-2); border-radius:2px; overflow:hidden; margin-top:8px; }
+  .progress > i{ display:block; height:100%; width:0%; background:var(--accent); transition:width .2s; }
+
+  .status{ font-size:12px; color:var(--muted); margin-top:8px; }
+  .status.ok{ color:var(--accent); }
+  .status.err{ color:var(--danger); }
+
+  .result-block{
+    background:var(--surface-2); border:1px solid var(--border);
+    border-radius:10px; padding:12px; margin-bottom:10px;
+  }
+  .result-label{
+    font-size:10.5px; font-weight:700; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;
+  }
+  .result-text{
+    font-size:15px; line-height:1.5; word-break:break-word; white-space:pre-wrap;
+  }
+  .result-text.translated{ color:var(--accent); font-weight:600; font-size:16px; }
+  .result-empty{ color:var(--muted); font-style:italic; font-size:13px; }
+
+  .log{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px;
+    background:#080b13; border:1px solid var(--border); border-radius:10px;
+    padding:10px; max-height:140px; overflow-y:auto; color:var(--muted);
+    white-space:pre-wrap;
+  }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700;
+    background:var(--surface-2); border:1px solid var(--border); color:var(--muted);
+  }
+  .pill.ok{ color:var(--accent); border-color:rgba(74,222,128,.4); }
+  .pill.ok b{ color:var(--accent); }
+  .pill b{ color:var(--text); font-weight:800; }
+
+  .hidden{ display:none !important; }
+  .toast{
+    position:fixed; left:50%; transform:translateX(-50%);
+    bottom:calc(24px + env(safe-area-inset-bottom));
+    background:var(--surface); border:1px solid var(--border); color:var(--text);
+    padding:12px 18px; border-radius:999px; font-size:13px; font-weight:600;
+    box-shadow:0 8px 24px rgba(0,0,0,.4); z-index:100;
+    opacity:0; pointer-events:none; transition:.25s;
+    max-width:92vw; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+  .toast.ok{ background:var(--accent); color:#06210f; border-color:var(--accent); }
+  .toast.err{ background:var(--danger); color:#2a0505; border-color:var(--danger); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌐 Kamera Çevirmeni</h1>
+  <div class="sub">Tesseract.js OCR + Otomatik Dil Algılama + Translator/MyMemory</div>
+</header>
+
+<main>
+  <div class="mode-toggle" id="modeToggle">
+    <button data-mode="camera" class="active">📷 Kamera</button>
+    <button data-mode="image">🖼️ Görsel Yükle</button>
+    <button data-mode="manual">⌨️ Elle Giriş</button>
+  </div>
+
+  <div class="card">
+    <h2>🌍 Diller</h2>
+    <div class="grid-2">
+      <div>
+        <label class="field">Kaynak (görseldeki yazı)</label>
+        <select id="srcLang">
+          <option value="auto" selected>🪄 Otomatik algıla</option>
+          <option value="eng">İngilizce</option>
+          <option value="deu">Almanca</option>
+          <option value="fra">Fransızca</option>
+          <option value="spa">İspanyolca</option>
+          <option value="ita">İtalyanca</option>
+          <option value="rus">Rusça</option>
+          <option value="ara">Arapça</option>
+          <option value="chi_sim">Çince (Basit)</option>
+          <option value="jpn">Japonca</option>
+          <option value="kor">Korece</option>
+          <option value="nld">Felemenkçe</option>
+          <option value="pol">Lehçe</option>
+          <option value="por">Portekizce</option>
+          <option value="tur">Türkçe</option>
+        </select>
+      </div>
+      <div>
+        <label class="field">Hedef (çeviri)</label>
+        <select id="tgtLang">
+          <option value="tr" selected>Türkçe</option>
+          <option value="en">İngilizce</option>
+          <option value="de">Almanca</option>
+          <option value="fr">Fransızca</option>
+          <option value="es">İspanyolca</option>
+          <option value="it">İtalyanca</option>
+          <option value="ru">Rusça</option>
+          <option value="ar">Arapça</option>
+          <option value="zh">Çince</option>
+          <option value="ja">Japonca</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px; align-items:center">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer">
+        <input type="checkbox" id="autoTranslate" checked>
+        Otomatik çevir
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer">
+        <input type="checkbox" id="autoScan">
+        Otomatik tara (3 sn)
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="pill" id="detectedLangBadge" style="display:none">
+        🔎 Algılanan dil: <b id="detectedLangText">—</b>
+      </span>
+    </div>
+  </div>
+
+  <section id="panelCamera">
+    <div class="camera-wrap" id="cameraWrap">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="crop-overlay"><div class="crop-box"></div></div>
+      <div class="camera-message" id="cameraMessage">Kamerayı başlatmak için aşağıdaki düğmeye bas</div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="btnStartCamera">📷 Kamerayı Başlat</button>
+      <button class="btn" id="btnStopCamera" disabled>⏹ Durdur</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn blue" id="btnCapture" disabled>📸 Yakala ve Oku</button>
+    </div>
+  </section>
+
+  <section id="panelImage" class="hidden">
+    <div class="card">
+      <h2>🖼️ Galeriden Görsel Seç</h2>
+      <p style="color:var(--muted); font-size:12.5px; margin:0 0 10px">Telefonun galerisindeki bir fotoğrafı seç, üzerindeki yazıyı okuyup çevirelim.</p>
+      <input type="file" id="imageInput" accept="image/*" style="display:none">
+      <button class="btn primary" id="btnPickImage">📁 Görsel Seç</button>
+      <div id="imagePreviewWrap" style="margin-top:12px; display:none">
+        <img id="imagePreview" style="max-width:100%; border-radius:10px; border:1px solid var(--border)">
+        <button class="btn blue" id="btnProcessImage" style="margin-top:8px">🔍 Oku ve Çevir</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="panelManual" class="hidden">
+    <div class="card">
+      <h2>⌨️ Elle Metin Girişi</h2>
+      <p style="color:var(--muted); font-size:12.5px; margin:0 0 10px">Kamera olmadan test için ideal. Herhangi bir metni yapıştır, çevirisini gör.</p>
+      <textarea id="manualText" placeholder="Örnek: Good morning, how are you?"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="btnManualTranslate">🌐 Çevir</button>
+        <button class="btn" id="btnManualClear">🗑️ Temizle</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="card">
+    <h2>📊 Durum</h2>
+    <div class="status" id="statusMsg">Hazır. Başlamak için bir mod seç.</div>
+    <div class="progress"><i id="progressBar"></i></div>
+  </div>
+
+  <div class="card" id="resultCard">
+    <h2 style="display:flex;justify-content:space-between;align-items:center">
+      <span>📄 Sonuç</span>
+      <span style="display:flex;gap:6px">
+        <button class="btn small" id="btnCopy">📋 Kopyala</button>
+        <button class="btn small" id="btnShare">📤 Paylaş</button>
+      </span>
+    </h2>
+    <div class="result-block">
+      <div class="result-label">Orijinal metin</div>
+      <div class="result-text" id="originalText"><span class="result-empty">Henüz bir şey okunmadı.</span></div>
+    </div>
+    <div class="result-block">
+      <div class="result-label">Çeviri <span id="engineLabel" style="text-transform:none"></span></div>
+      <div class="result-text translated" id="translatedText"><span class="result-empty">Çeviri burada görünecek.</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📋 Kayıt</h2>
+    <div class="log" id="log">Hazır.</div>
+  </div>
+
+  <div class="card" style="font-size:12.5px; color:var(--muted); line-height:1.6">
+    <b style="color:var(--text)">💡 Nasıl test edilir?</b><br>
+    1. "Otomatik algıla" seçiliyken ilk OCR'da ek dil modelleri indirilir (Biraz sürebilir).<br>
+    2. Algılama: <b>OSD</b> + <b>her dil için ayrı OCR</b> + <b>Tesseract Güven Skoru (confidence)</b>.<br>
+    3. Artık Almanca 'ß', 'ä' gibi karakterler doğru tanındığı için dil yanlış algılanmıyor.<br>
+    4. Emülatörde kamera gerçek metin görmüyorsa <b>⌨️ Elle Giriş</b> veya <b>🖼️ Görsel Yükle</b> kullan.
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- Kütüphaneler -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/franc-all@6.2.0/dist/franc-all.min.js"></script>
+<!-- Uygulama Mantığı -->
+<script src="app.js"></script>
+
+</body>
+</html>
